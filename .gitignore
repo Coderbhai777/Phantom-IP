@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak
+venv.bak
+logs/
+results/
+last_findings.txt
+test.py
+*.log
