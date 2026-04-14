@@ -28,7 +28,7 @@ Phantom-IP integrates several powerful open-source utilities. Full credit is giv
 Ensure you have Python 3 and a WSL Kali Linux environment installed.
 ```bash
 # Clone the repository
-git clone https://github.com/[YOUR_USERNAME]/phantom-ip-suite.git
+git clone https://github.com/Coderbhai777/phantom-ip-suite.git
 cd phantom-ip-suite
 
 # Install dependencies
@@ -49,5 +49,7 @@ python phantom_cli.py
 ## 🛡️ License
 Distributed for educational and research purposes under the MIT License. The owner assumes no liability for misuse.
 
+##End
+Pliz Give Me a Star
 ---
 **Tags**: #CyberSecurity #RedTeam #Pentesting #Python #KaliLinux #OSINT #VulnerabilityScanner #InformationSecurity #HackTheBox #EthicalHacking
