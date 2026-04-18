@@ -7,9 +7,8 @@
 
 A high-fidelity, professional cybersecurity reconnaissance and auditing toolkit integrated with **WSL Kali Linux**.
 
-### 👤 Mastermind Identities
+### 👤 Identities
 *   **Chief Architect**: [Coderbhai777](https://github.com/Coderbhai777)
-*   **Operational Intelligence**: **Z00Z** (Unrestricted Security Intelligence Operative)
 
 > [!CAUTION]
 > **LEGAL DISCLAIMER**: The developer of Phantom-IP is NOT responsible for any illegal use of this toolkit. This tool is intended for educational purposes and authorized security auditing only. The creators assume no liability for misuse.
