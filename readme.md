@@ -30,7 +30,7 @@ Phantom-IP integrates several powerful open-source utilities. Full credit is giv
 Ensure you have Python 3 and a WSL Kali Linux environment installed.
 ```bash
 # Clone the repository
-git clone https://github.com/Coderbhai777/phantom-ip-suite.git
+git clone https://github.com/Coderbhai777/Phantom-IP.git
 cd phantom-ip-suite
 
 # Install dependencies
